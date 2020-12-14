@@ -1,0 +1,25 @@
+Gaurav Kale
+905303766
+
+2.1
+========
+(expt 2 (expt 3 4)) for part A
+
+(< (expt 3 4) 63) returns nil
+
+C-h k C-h k gives you the help menu for the help key, where it tells the function of the keybinding for C-h k
+
+C-h M-SPC gives you the help menu for the meta space command, which is a "make one space" command that adds a space if there is none, and reduces to only one whitespace if there are more than one spaces at the cursor point
+
+the source for M-SPC is 'cycle-spacing', which can be run on a buffer in both ways. M: needs to be called using parentheses in standard lisp format however.\
+
+
+Python Scripting
+=========
+When randline is run on /dev/null it encounters an error, probably because the file is a)unexecutable, but also bevause it is a special "null" file that is used as a throwaway
+
+When invoked with Python 3, there is a syntax error, and this is because there are some portability issues between Py 2 and 3.
+
+When invoked with Python 2, shuf.py gives more syntax errors, showing the portability issues that exist
+
+In my implementation of shuf.py, I made it so that each flag had it's own argparse argument, from where i was able to write a series of conditional statements that would handle the behavior depending on which flags were activated. Outside of that, this was straightforward logically, but the syntax and handling from the stdin vs file input were both new to me.
