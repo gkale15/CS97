@@ -1,0 +1,50 @@
+Gaurav Kale
+905303766
+
+1.1
+======
+8. The command C-v moves down an entire page, there is also M-g g to go to a specific line. These commands help make less key strokes. C-n also moves to the next line, and there are reverse versions of all of these commands (to go to page start, prev line, etc.)
+
+1.4
+======
+8. 12 instances of <ol> and </ol> total
+
+1.5
+======
+1. These are both located in the usr/bin folder
+2. ar - create modify extract from archives
+   pr - convert text files for printing, print files
+   tr - translate/ delete characters
+3. when the command "which -a emacs" is run, it shows versions of emacs tied in /usr/local/cs/bin/emacs, which is aliased to /usr/bin/emacs
+
+4. gcc -v return version 10.2.0
+   /usr/bin/gcc -v is version 4.8.5
+	This is because the gcc that is used by default on the seasnet server is updated to a different version than the one that is sitting in my /usr/bin/ folder. The default path is to the usr/local/cs/bin/gcc. If I run /usr/local/cs/bin/emacs -v, i get 10.2.0 as expected.
+
+5. This means the user gains permission to execute(x) where user/group id is set on execution(s). The group is rescinded the ability to write to file
+
+6. there are a lot modified within the last 4 weeks, used by setting the find command with the -D flag and setting -mtime to 28 for 28 days for the specified path. Count was 580.
+
+7. Same as above but instead of type -d as a flag the flag was type -l. This gets all symbolically linked files. Count was 454 files.
+
+8. ls -lt lists more file info sorted from new to old by time modified. 
+	librom1394.so.0.3.0 was last modified on 12/18/2013.
+
+9. by looking for path in the locale documentation, I got that there are 2 PATHs, one of which is LOCPATH = $HOME/.locale, which is where I assume it gets its data from. This is also where the directory is located.
+
+10. C-h a helped me search through emacs commands
+	downcase-dwin (M-x ... RET) downcases words that are marked or at point
+	downcase-region (C-x C-l) converts region to lowercase
+	downcase-word (M-l) converts from lowercase to end of word
+	
+11. C-M-r is regexp search backwards from the cursor point
+    C-M-s is regexp search forwards from the cursor point 
+    C-M-t is transpose-sexps, ie transposing 2 lines
+    C-M-u is to move backwards out of one level of parentheses 
+    C-M-v is to scroll down a page, but in the other emacs window (not the one you are currently working in)
+
+12. Global command keyboard quit is bound to C-g, causes a quit directly during execution of Lisp code. Function name is 'keyboard-quit', which can be searched as well using C-h k keyboard-quit
+
+13. You can invoke yank by doing C-y, and it reinserts the text that has been most recently killed or yanked. With argument N, you can reinsert the Nth recent yank. Yanks depend on the position of the mark and point, with the point at the end.
+
+14. When you do the dired command, it lists the owner as gauravk, and the folder or group as csugrad or root. The path is from /u.cs/ugrad/gauravk. On the other hand running ls -l on terminal just takes you to through the /usr/ path, so all the owners and group are shown as root.
