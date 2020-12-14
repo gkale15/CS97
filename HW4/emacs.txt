@@ -1,0 +1,28 @@
+Gaurav Kale 905303766 Lab 4
+
+
+B1:
+
+After running gitk on mergepoint M at the specified location:
+	The role of this mergepoint seems to show that M is a mergepoint for emacs version 27, which is the final merge in a series of merges between the master branch and the emacs-27 branch. 
+	The main window shows a graphical representation of the above details: there is a main 'master' branch, and at our M point, it shows that a previous commit that was in a separate branch has been merged with the master branch.
+	On the right, we can see a window of the ids and emails of the author responsible behind each commit in the line. WE can also see a date and timestamp on the very right window. This merge was committed by Glenn Morris, rgm@gnu.org, on the date 10/17/20 at the time 09:48:54.
+
+	In the bottom left, we can see some information about the commit, including options to view the old/new version, or see the diff between the 2. It also mentions all the children and parents of this specific commit/merge point.
+	On the bottom right is a tree that describes the files that are present/ changed in this commit
+
+
+B2:
+
+See pdf,
+
+
+
+B3:
+	The main difference between running git branch in both of these locations is that on the linux servers, running git branch leads off with having a master branch and many many more side branches. 
+
+	On the other hand, downloading the git from savannah only leaves you with one branch: the master branch.
+
+	The reason for this is because the command to clone from the Savannah location is specifically cloning the master branch of the repo, and therefore we only follow this one. (note: I used the command git clone -b master git://git.sv.gnu.org/emacs.git to clone).
+
+	Another reason could be due to timing, since the linux servers have been keeping up with the master release of emacs for a while, and therefore in that time many new branches have been opened as well. As new branches get pushed into the master from Savannah, it could be possible that more branches will show themselves.

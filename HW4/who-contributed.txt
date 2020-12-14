@@ -1,0 +1,38 @@
+First I needed to see which commit had this file in its directory, so I did:
+	$git grep -n 'Even newsp'
+I got the result:
+	northamerica:890:# and wrote "Even newspaper reports present contradictory information."
+So I have a file and a line number
+I used the git log command with the -p flag to get the entire history of diff edits
+By searching through these I can grep the earliest insertion of the line:
+	$git log -p northamerica | grep -n 'Even news'
+This helps bring up some occurences of where the the string is, however not enough log information
+
+So let me try $git log -G'Even news' northamerica
+	using gits inbuilt function I was able to search throught the logs themselves
+	I got 3 logs as a result of this query, and I looked in the oldest one of these to get my answer
+
+commit c12b432741eed9a422fbf99fa27af6e7a941d88b
+Author: Arthur David Olson <ado@elsie>
+Date:   Thu Dec 21 11:43:42 1995 -0500
+
+    Eggert changes
+    
+    SCCS-file: northamerica
+    SCCS-SID: 7.20
+
+That is the metadata of the log itself, and now looking into it:
+
+From Paul Eggert (1995-12-19):
++# Indiana generally observes either EST all year, or CST/CDT,
++# but areas near Cincinnati and Louisville use those cities' timekeeping
++# and in 1969 and 1970 the whole state observed daylight time;
++# and there are other exceptions as noted below.
++# Shanks partitions Indiana into 345 regions, each with its own time history,
++# and writes ``Even newspaper reports present contradictory information.''
++# Fortunately, most of the complexity occurred before our cutoff date of 1970.
++#
+
+is the actual insertion back in 1995, and as we can see, the author, Shanks, is properly quoted.
+The edit was made by Paul Eggert on 12/19/1995
+This means that this is not a case of fraud or whatever we were arguing about.
