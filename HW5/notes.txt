@@ -1,0 +1,430 @@
+RANDALL.C
+	uses x86 random instruction from hardware if available, else uses /dev/random or stdio
+	Hardware: functions that return information about the cpu, imit rand64 implementation,
+		return a random value using hardware ops, and finalize the hardware impl
+	Software: exact same thing, except using software functionality
+	Main: check if input valid
+		if hardware supported, call its functions, 
+		else use software implementation calling its functions 
+
+MAKECHECK
+	in MAKEFILE, under submission, add an entry as follows:
+	
+	check: randall
+		./test.sh
+
+#!/bin/sh
+N=1000
+if [ "$(./randall "$N" | wc -c)" = "$N" ]
+then
+   exit 0 # Success!
+else
+   exit 1 # Fail :(
+fi
+
+	by having the above as the script, running make check exits silently if there is no problem.
+
+
+DIVIDING UP INTO FILES:
+
+We want to divide this into a few different files, where first options.c (and options.h) 
+take care of command line parsing.
+
+Off our version of randall.c, I had my options.c file as follows:
+options (int argc, char **argv)
+{
+  /* Check arguments.  */
+  bool valid = false;
+  long long nbytes;
+  if (argc == 2)
+    {
+      char *endptr;
+      errno = 0;
+      nbytes = strtoll (argv[1], &endptr, 10);
+      if (errno)
+	perror (argv[1]);
+      else
+	valid = !*endptr && 0 <= nbytes;
+    }
+  if (!valid)
+    {
+      fprintf (stderr, "%s: usage: %s NBYTES\n", argv[0], argv[0]);
+      return 1;
+    }
+}
+
+For now, all options will do is get the argc argv commands and then return 1 if it is not valid.
+In main, we replace the above section with:
+	if(options(argc,argv)) return 1;
+to catch any errors. 
+
+For the time being, the rand64-hw and rand64-sw files are pretty standard. We just take the entire
+hardware and software helper function sections and define them in these files. Header files 
+will contain function definitions, and c files will contain implementation.
+
+The output.c file I had limited for now. Reason being, I want to leave the function calling for the
+hardware and software portions in the main, as well as the output error handling. Therefore, 
+the output.c file is just:
+    do
+    {
+      unsigned long long x = rand64 ();
+      int outbytes = nbytes < wordsize ? nbytes : wordsize;
+      if (!writebytes (x, outbytes))
+	{
+	  output_errno = errno;
+	  break;
+	}
+      nbytes -= outbytes;
+    }
+  while (0 < nbytes);
+
+update the Makefile, so now make has gcc with all the new .c files
+
+ADDING OPTIONS:
+	this is where options.c gets expanded. We need to use the optparse functions
+	in order to be able to get options. Therefore, the optparse segment looks like this:
+ int opt;
+  while ((opt = getopt(argc, argv, "i:o:")) != -1) {
+    switch (opt) {
+      case 'i':
+        *iarg = optarg;
+        break;
+      case 'o':
+        *oarg = optarg;
+        break;
+      default:
+        fprintf (stderr, "the flag options you have given are not valid.");
+        return 2; // Unrecognized option                                                                                                            
+    }
+  }
+
+Here, we can check if therte are -i and -o flags , with the specification that both must have 
+options after them. If these are not recognized, then return an error, otherwise pass the
+c strings for the iargument and oargument back to the main function for error handling.
+
+This added another problem, where now getting nbytes is not so trivial.
+I decided to define the randall function as 
+randall [OPTIONS] Nbytes
+
+where nbytes are always the input at the end.
+Therefore, this section had to get added to my options.c program to get 
+nbytes if flags were present
+
+else if (argc == 4)
+    {
+      char *endptr;
+      *nbytes = strtoll (argv[3], &endptr, 10);
+      if (errno) perror (argv[3]);
+      else valid = !*endptr && 0 <= *nbytes;
+    }
+  else if (argc == 6)
+    {
+      char *endptr;
+      *nbytes = strtoll (argv[5], &endptr, 10);
+      if (errno) perror (argv[5]);
+      else valid = !*endptr && 0 <= *nbytes;
+    }
+This will accomplish what I had mentioned before, so now -i option and -o option will both
+not mess with the value of nbytes.
+
+Now for some error checking, I decided to do this segment in main
+This is because I did not want to pass a large number of flags by reference between 
+options.c and randall.c, and plus we had parsed the options in the options file. Its role was 
+effectively complete.
+
+For -i rdrand:
+if(iarg != NULL && strcmp(iarg,"rdrand")==0) {
+    if(!rdrand_supported()) {
+      fprintf(stderr, "the rdrand option is not supported on this hardware\n");
+      return 1;
+    }
+  }
+
+we check if the PC supports the hardware implementation and throw an error if it does not.
+Otherwise, since this is the standard option by default, we can just continue through 
+the rest of the code as before.
+
+for -i mrand48_r:
+
+This one was accomplished by adding a flag in the main program, that went high 
+if the i argument was "mrand48_r". This argument would then trigger mrand's functions
+from rand64-sw.c, instead of the standard hardware or software function.
+So we add this to check in main:
+
+else if(iarg!=NULL && strcmp(iarg,"mrand48_r")==0) {
+    mrand_flg = true;
+  }
+and then the following section to set initialize, finalize, and rand64 to mrand48's set:
+if (mrand_flg) {
+    initialize = mrand48_rng_init;
+    rand64 = mrand48_rng;
+    finalize = mrand48_rng_fini;
+  }
+
+Now we have to go to rand64-sw.c (and update h as well) and actually implement 
+	these functions:
+
+we have to #include <time.h> for this to be valid
+in the C file, we define a private buffer variable, which can be shared by the functions of 
+this file:
+
+struct drand48_data buf = {0};
+
+this was done so that the functions themselves would not have to be edited for parameters,
+as that would make the implementation more complicated than it has to be.
+
+so our 3 functions are as follows:
+
+void mrand48_rng_init(){
+  srand48_r(time(NULL),&buf);
+}
+
+unsigned long long mrand48_rng() {
+  long int a,b;
+  mrand48_r(&buf,&a);
+  mrand48_r(&buf,&b);
+  return (((unsigned long long) a) << 32) | ((unsigned long long) b & 0x00000000FFFFFFFF);
+
+}
+
+void mrand48_rng_fini() {
+
+}
+
+
+The finialize function is trivial
+The initialize function takes the buffer, and sets a seed for random number generation 
+that starts from time(NULL)
+	this has to be in the initialize function, otherwise the seed would get 
+	reset to the same value every rand64 call.
+The mrand_rng function uses the built in mrand function to get 2 random longs, a and b
+It then logical ORs these together, masking b so that it does not get sign extended by 1s
+The output of these is a random long long int, which we will return.
+
+
+for -i /F:
+else if(iarg!=NULL && iarg[0]== 47) {
+    FILE *file;
+    if((file=fopen(iarg, "r"))) {
+      fclose(file);
+    }
+    else {
+      fprintf(stderr,"invalid file, please choose one that exists\n");
+      return 1;
+    }
+  }
+
+The above code first checks if the first character of the i argument is a '/'
+Then, it tries to open this as a file for reading, and if it cannot do that then this 
+means we have an invalid file name, or a file that cannot be read. 
+
+I initially had a length checker to see if the file length was less than N, but this doesn't 
+seem to work for a lot of the / files, as they are simply built different (it would say 
+/dev/random was 0 bytes long, which doesn't make sense)
+
+Now that we know that iarg holds a valid file name, we need to feed this into 
+	the software implementation somehow. (sw and not hw because hardware has its own builtin,
+	while sw uses /dev/random by default.
+
+So I had to edit all the init functions so that they could accept our filename.
+I did this by editing the function pointer in main to:
+	void (*initialize) (char *file);
+
+And then editing the definition of hardware_init, software_init, and mrand_init 
+so that they accepted a file. 
+
+For the case of mrand and hardware, this file is useless, so I just added file=file 
+so that it would be used in the function.
+
+For software's init, it got edited to the following:
+void
+software_rand64_init (char *file)
+{
+  if(file == NULL){
+    urandstream = fopen ("/dev/random", "r");
+    if (! urandstream)
+      abort ();
+  }
+  else {
+    urandstream = fopen (file, "r");
+    if (! urandstream)
+      abort ();
+  }
+}
+
+where if there exists some valid file, then it will set urandstream to that file, otherwise
+continue as with before. This should have the intended effect we want.
+
+-o stdio:
+
+This is trivial, if this flag is called then just continue default behavior as before:
+if(oarg != NULL) {
+    if(strcmp(oarg,"stdio")==0) {bufsize =0;}
+we will get to the bufsize soon enough:
+
+
+-o N:
+
+This one was tricky. My approach was to check if the oargument was a valid positive 
+integer in main, and if it was then set bufsize to that
+
+then, in output.c, based on the value of bufsize, the write function would handle the 
+buffer prints. This was done as so:
+
+for(int i = 0; oarg[i] != '\0'; i++) {
+        if(isalpha(oarg[i])){
+   fprintf(stderr, "Should be N bytes where N is a valid decimal integer\n");
+            return 1;
+         }
+      }
+        bufsize = atoi(oarg);
+	if(bufsize<0) {
+   fprintf(stderr, "Should be N bytes where N is a valid positive decimal integer\n");
+          return 1;
+        }
+
+Where first we check if there are any alpha characters in the string,and if not then 
+convert to integer and check value. the only problem is, I tried using isdigit, but 
+this would not catch cases like -o 7a for some reason. Therefore, it is still open to 
+having somthing like 7? being valid and then converted to an int based on ascii values.
+
+Then, in output.c:
+we had to edit the function so that it accepted a new parameter for buffer size, called bufsize
+
+Now we take the do/while loop from before, and relegate that inside an else: statement
+This is the default behavior. the initial check we then do is:
+
+if(bufsize >0){
+    long long *buffer = malloc(bufsize*1024);
+    int num_buf = nbytes/(1024*bufsize);
+    int outbytes = nbytes;
+    for (int i =0; i < num_buf; i++) {
+      for (long long j=0; j<(8*bufsize); j++) {
+        x = rand64();
+        outbytes -= 128;
+        buffer[j] = x;
+      }
+      write(1,buffer,1024*bufsize);
+    }
+    for(long long k =0; k<(8*bufsize); k++) {
+      x = rand64();
+      buffer[k] =x;
+    }
+    write(1,buffer,outbytes);
+    free(buffer);
+  }
+
+
+Where if the bufsize is valid, then we allocate a buffer that is N KiB using malloc
+I decided to use 2 for loops to do this, where the first nested set outputs all the set 
+of full buffers first, and then the second for loop outputs however many bytes are left
+to be written.
+
+so num_buf is a integer division that just gets the number of total buffers, 
+and outbytes is defined as the number of bytes left to output/.
+I iterate the buffer using a long long, so i could just write the random result to the array
+Finally, the write function has (1,buffer,1024*bufsize) in order to write to 
+stdout in buffer format for the entire buffer.
+
+The second for loop has a write(1,buffer,outbytes) which just takes care of the remaining bytes
+This works because in the "complete buffer" loops, we always subtract from outbytes to have a 
+tally of how many bytes remain.
+
+Finally, we free our allocated buffer, so as to not cause memory leaks. 
+
+Our program is now done!
+
+The final steps are to update the make check, which we did by copying the check
+from before and varying up values of N, as well as the combinations of flags used 
+on randall. 
+
+As long as each of these tests has the expected length, we cannot say too much more for 
+their accuracy, as it is hard to see if these numbers are in fact random, and see any 
+subtelty in the different methods of generating random numbers.
+
+As a final check, I compiled with -O2 and ran the speed tests. These were my results:
+
+
+
+time dd if=/dev/urandom ibs=8192 obs=8192 count=16384 >/dev/null
+16384+0 records in
+16384+0 records out
+134217728 bytes (134 MB, 128 MiB) copied, 0.890926 s, 151 MB/s
+
+real	0m0.894s
+user	0m0.019s
+sys	0m0.874s
+
+
+time ./randall 133562368 >/dev/null
+
+real	0m2.957s
+user	0m2.942s
+sys	0m0.015s
+
+
+time ./randall 133562368 | cat >/dev/null
+
+real	0m3.146s
+user	0m3.118s
+sys	0m0.191s
+
+
+time ./randall 133562368 >rand.data
+
+real	0m4.298s
+user	0m2.963s
+sys	0m0.182s
+
+
+time dd if=/dev/urandom ibs=8192 obs=8192 count=133562368 >/dev/null
+^C588898+0 records in
+588897+0 records out
+4824244224 bytes (4.8 GB, 4.5 GiB) copied, 31.9765 s, 151 MB/s
+
+real	0m31.980s
+user	0m0.510s
+sys	0m31.470s
+
+time dd if=/dev/urandom ibs=8192 obs=8192 count=1335623 >/dev/null
+^C524221+0 records in
+524220+0 records out
+4294410240 bytes (4.3 GB, 4.0 GiB) copied, 28.6221 s, 150 MB/s
+
+
+real	0m28.624s
+user	0m0.483s
+sys	0m28.142s
+
+
+As you can see, once the number of bytes for the dd command even comes close to the 
+number of bytes given for randall, it takes far, far longer. Overall, most of my 
+timings are in the right ballpark.
+
+If i do -i /dev/urandom for the same numbers, here is the output:
+
+
+time ./randall -i /dev/urandom 133562368 >rand.data
+
+real	0m4.296s
+user	0m2.974s
+sys	0m0.157s
+
+
+time ./randall -i /dev/urandom 133562368 | cat >/dev/null
+
+real	0m3.140s
+user	0m3.102s
+sys	0m0.200s
+
+
+time ./randall -i /dev/urandom 133562368 >/dev/null
+
+real	0m2.978s
+user	0m2.960s
+sys	0m0.017s
+
+
+The numbers are still in that same range.
+
+
